@@ -4,6 +4,10 @@ services:
     container_name: screen-sharer-livekit
     command: --config /etc/livekit.yaml
     restart: unless-stopped
+    # Necessario no Linux para o container alcancar o Next no host; no
+    # Docker Desktop ja existe, mas declarar mantem o compose portavel.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     ports:

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { TrackSource } from 'livekit-server-sdk';
 import { isValidSlug } from '@/lib/rooms';
 import { roomService } from '@/lib/livekit';
+import { markTakenOver } from '@/lib/usage';
 
 export const runtime = 'nodejs';
 
@@ -64,6 +65,10 @@ export async function POST(req: Request) {
         if (!displaced.includes(p.identity)) displaced.push(p.identity);
       }
     }
+
+    // Só aqui se sabe que a tela não parou sozinha: foi derrubada. O
+    // track_unpublished que chega depois apenas fecha o ended_at.
+    await markTakenOver(slug, displaced);
 
     return NextResponse.json({ ok: true, displaced });
   } catch (err) {

@@ -13,3 +13,14 @@ rtc:
 
 keys:
   devkey: secret-de-desenvolvimento-com-32-chars-min
+
+# Webhooks: a origem do controle de uso. O container precisa alcancar o Next
+# rodando no host, dai o host.docker.internal (o docker-compose mapeia).
+# A assinatura usa a chave/segredo acima; a rota valida com WebhookReceiver.
+#
+# Em LiveKit Cloud este bloco nao vale: configure em
+# Settings > Webhooks, apontando para https://<seu-dominio>/api/livekit/webhook
+webhook:
+  api_key: devkey
+  urls:
+    - http://host.docker.internal:3000/api/livekit/webhook
