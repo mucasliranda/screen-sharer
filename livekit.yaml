@@ -1,0 +1,15 @@
+port: 7880
+log_level: info
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50060
+  # Em Docker Desktop o container nao ve o IP do host. Como as portas sao
+  # publicadas em localhost e o navegador roda no host, anunciar 127.0.0.1
+  # faz o candidato ICE funcionar para desenvolvimento local.
+  use_external_ip: false
+  node_ip: 127.0.0.1
+
+keys:
+  devkey: secret-de-desenvolvimento-com-32-chars-min
