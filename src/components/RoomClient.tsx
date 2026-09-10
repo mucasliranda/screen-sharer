@@ -17,22 +17,27 @@ import ShareTile from './ShareTile';
 type Phase = 'form' | 'connecting' | 'live' | 'error';
 
 /**
- * Toda transmissão sai em 1440p a 5fps. Fixo, sem seletor.
+ * Toda transmissão sai em 1080p a 3fps. Fixo, sem seletor.
  *
  * O navegador NÃO consegue capturar mais pixels do que a tela de origem tem:
- * em um monitor 1080p isto entrega 1080p. Por isso medimos o que realmente
+ * num monitor menor isto entrega menos. Por isso medimos o que realmente
  * saiu (ver `capture`) em vez de assumir que o pedido foi atendido.
  */
-const CAPTURE = { width: 2560, height: 1440, frameRate: 5 } as const;
+const CAPTURE = { width: 1920, height: 1080, frameRate: 3 } as const;
 
 /**
  * Bitrate derivado do preset h720fps5 do LiveKit (0,92 Mpx a 800 kbps, ou
- * ~0,87 Mbps por megapixel em conteúdo de tela a 5fps). 1440p tem 3,69 Mpx,
- * o que dá ~3,2 Mbps — arredondado para 3.
+ * ~0,87 Mbps por megapixel em conteúdo de tela a 5fps). 1080p tem 2,07 Mpx,
+ * o que dá ~1,8 Mbps a 5fps; a 3fps sobra folga, então fechamos em 1,5.
  *
- * Custo: ~1,35 GB por espectador-hora.
+ * Este teto é o que de fato limita a banda. Resolução e fps mudam o que o
+ * encoder QUER gastar; o maxBitrate é o que ele PODE — sem baixá-lo junto,
+ * conteúdo em movimento continuaria saturando o valor antigo.
+ *
+ * Custo no pior caso: ~0,68 GB por espectador-hora (era 1,35 em 1440p/5fps).
+ * Em tela parada, que é o caso comum, o consumo real fica bem abaixo disso.
  */
-const ENCODING = { maxBitrate: 3_000_000, maxFramerate: CAPTURE.frameRate } as const;
+const ENCODING = { maxBitrate: 1_500_000, maxFramerate: CAPTURE.frameRate } as const;
 
 type CaptureInfo = { width: number; height: number; frameRate: number };
 
@@ -212,7 +217,7 @@ export default function RoomClient({ slug }: { slug: string }) {
           videoCodec: 'vp9',
           // L1T3: UMA camada espacial (a resolução nunca é reduzida) com três
           // camadas temporais. Quem estiver em rede ruim recebe menos quadros
-          // — 5, 2,5 ou 1,25fps — mas sempre em 1440p, que é o requisito.
+          // — 3, 1,5 ou 0,75fps — mas sempre em 1080p, que é o requisito.
           // L2/L3 aqui reintroduziriam downscale e quebrariam essa garantia.
           scalabilityMode: 'L1T3',
           simulcast: false,
@@ -223,7 +228,7 @@ export default function RoomClient({ slug }: { slug: string }) {
 
         if (isVideo) {
           // O que foi pedido nem sempre é o que a tela entrega: registramos
-          // o resultado real para o host saber se caiu abaixo de 1440p.
+          // o resultado real para o host saber se caiu abaixo de 1080p.
           const s = track.mediaStreamTrack.getSettings();
           setCapture({
             width: s.width ?? 0,
@@ -306,7 +311,7 @@ export default function RoomClient({ slug }: { slug: string }) {
   const shareAudio = collectShareAudio(room);
   const viewers = [...room.remoteParticipants.values()];
 
-  // O pedido de 1440p é um teto, não uma garantia: um monitor 1080p entrega 1080p.
+  // O pedido é um teto, não uma garantia: um monitor 720p entrega 720p.
   const belowTarget = capture !== null && capture.height < CAPTURE.height;
 
   const presenters = new Set(shares.map((s) => s.identity));
@@ -334,7 +339,7 @@ export default function RoomClient({ slug }: { slug: string }) {
             {capture && (
               <span className={belowTarget ? 'badge warn' : 'badge'}>
                 {capture.width}×{capture.height} · {capture.frameRate}fps
-                {belowTarget && ' — sua tela não chega a 1440p'}
+                {belowTarget && ` — sua tela não chega a ${CAPTURE.height}p`}
               </span>
             )}
             <button onClick={() => setShowSelf((v) => !v)}>

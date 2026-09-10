@@ -88,45 +88,56 @@ O SFU **não transcodifica** — o espectador recebe exatamente o que a sua máq
 Por isso as opções de publicação em `src/components/RoomClient.tsx` importam mais que qualquer
 configuração do servidor:
 
-**Toda transmissão sai em 1440p (2560×1440) a 5fps, ~3 Mbps.** É fixo — não há seletor.
+**Toda transmissão sai em 1080p (1920×1080) a 3fps, teto de 1,5 Mbps.** É fixo — não há seletor.
 
 | Opção | Valor | Por quê |
 |---|---|---|
-| `resolution` | `2560×1440 @ 5fps` | Requisito fixo do produto |
-| `screenShareEncoding.maxBitrate` | `3 Mbps` | Ver derivação abaixo |
+| `resolution` | `1920×1080 @ 3fps` | Requisito fixo do produto |
+| `screenShareEncoding.maxBitrate` | `1,5 Mbps` | Ver derivação abaixo |
 | `contentHint` | `'text'` | Sem isso o encoder borra texto para preservar FPS |
 | `degradationPreference` | `'maintain-resolution'` | Sob congestionamento derruba FPS, não resolução |
-| `videoCodec` + `scalabilityMode` | `vp9` + `L1T3` | **1** camada espacial: a resolução nunca cai. 3 camadas temporais: 5 / 2,5 / 1,25fps |
-| `simulcast` | `false` | Simulcast implica camadas em resolução menor — incompatível com "sempre 1440p" |
+| `videoCodec` + `scalabilityMode` | `vp9` + `L1T3` | **1** camada espacial: a resolução nunca cai. 3 camadas temporais: 3 / 1,5 / 0,75fps |
+| `simulcast` | `false` | Simulcast implica camadas em resolução menor — incompatível com "sempre 1080p" |
 | `backupCodec` | `true` | Fallback H.264 para quem não decodifica VP9 |
 
-### De onde vem os 3 Mbps
+### De onde vem 1,5 Mbps
 
 O preset `h720fps5` do LiveKit usa 800 kbps para 0,92 Mpx, ou seja ~0,87 Mbps por megapixel
-em conteúdo de tela a 5fps. 1440p tem 3,69 Mpx → ~3,2 Mbps, arredondado para 3.
-Ajuste em `ENCODING` no topo de `src/components/RoomClient.tsx` se o conteúdo for mais
-movimentado que texto.
+em conteúdo de tela a 5fps. 1080p tem 2,07 Mpx → ~1,8 Mbps a 5fps; a 3fps sobra folga, e
+fechamos em 1,5.
+
+**O teto é o que de fato limita a banda.** Resolução e fps mudam o que o encoder *quer*
+gastar; o `maxBitrate` é o que ele *pode*. Baixar só a resolução não reduz o tráfego de
+conteúdo em movimento — apenas melhora a qualidade dentro do mesmo teto. Ajuste em `ENCODING`
+no topo de `src/components/RoomClient.tsx` se o conteúdo for mais movimentado que texto.
 
 ### Por que L1T3 e não L3T3
 
 Em `LxTy`, o **x é o número de camadas espaciais**. `L3T3` publica três resoluções e deixa o
-SFU rebaixar quem estiver com rede ruim — o que violaria o requisito de 1440p. Com `L1T3`
-existe uma única resolução; o espectador congestionado perde quadros (até 1,25fps), nunca
+SFU rebaixar quem estiver com rede ruim — o que violaria o requisito de 1080p. Com `L1T3`
+existe uma única resolução; o espectador congestionado perde quadros (até 0,75fps), nunca
 nitidez.
 
-O preço disso: **não há degradação suave para redes fracas**. Quem não sustentar ~3 Mbps vai
-travar em vez de receber uma imagem menor.
+O preço disso: **não há degradação suave para redes fracas**. Quem não sustentar ~1,5 Mbps vai
+travar em vez de receber uma imagem menor. Em compensação, o piso ficou bem mais baixo do que
+os 3 Mbps anteriores, então menos gente cai nessa situação.
 
-### 1440p é um teto, não uma garantia
+### 1080p é um teto, não uma garantia
 
-O navegador não captura mais pixels do que a tela de origem tem — em um monitor 1080p você
-transmite 1080p, independentemente do que foi pedido. A sala mede o que realmente saiu
-(`getSettings()`) e mostra um aviso no topo quando fica abaixo de 1440p.
+O navegador não captura mais pixels do que a tela de origem tem — em um monitor 720p você
+transmite 720p, independentemente do que foi pedido. A sala mede o que realmente saiu
+(`getSettings()`) e mostra um aviso no topo quando fica abaixo de 1080p. Monitores maiores
+que 1080p são reduzidos para 1080p na captura.
 
 ### Impacto em banda
 
-3 Mbps ≈ **1,35 GB por espectador-hora**. No plano gratuito do LiveKit Cloud (50 GB/mês)
-isso dá cerca de **37 espectador-horas** — a banda passa a ser o limite antes dos minutos.
+1,5 Mbps ≈ **0,68 GB por espectador-hora** no pior caso — metade dos 1,35 GB da configuração
+anterior (1440p a 5fps). No plano gratuito do LiveKit Cloud (50 GB/mês) isso dá cerca de
+**74 espectador-horas**.
+
+Esse número é o **teto**, não a média: ele pressupõe 1,5 Mbps sustentados por uma hora
+inteira. Conteúdo de tela é dominado pelo que *muda* — com uma IDE ou planilha praticamente
+parada, o encoder produz uma fração disso.
 
 ---
 
@@ -175,7 +186,7 @@ dessa escolha.
 
 Quando oculto, o `<video>` não é montado — não basta borrar. Um vídeo borrado continua sendo
 recapturado e reborrado a cada quadro, o que mantém a recursão (só que embaçada) e faz o
-encoder enxergar movimento constante numa transmissão calibrada para 5fps de conteúdo
+encoder enxergar movimento constante numa transmissão calibrada para 3fps de conteúdo
 estático. Sem elemento, não há realimentação.
 
 ---

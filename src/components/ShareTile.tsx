@@ -25,7 +25,7 @@ export default function ShareTile({
     // Quando oculto não montamos o <video>: se ele existisse, estaria exibindo
     // a própria captura, que seria recapturada, e assim por diante — o espelho
     // infinito. Borrar não resolveria, só deixaria a recursão embaçada e ainda
-    // faria o encoder ver movimento constante numa transmissão de 5fps.
+    // faria o encoder ver movimento constante numa transmissão de 3fps.
     if (concealed) return;
 
     const el = audioOnly ? audioRef.current : videoRef.current;
