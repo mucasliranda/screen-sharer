@@ -226,3 +226,10 @@ input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   font-size: 13px;
   line-height: 1.55;
 }
+
+/* Participante que nao conseguiu conectar em modo P2P. */
+.person .tag.warn {
+  background: rgba(252, 211, 77, 0.16);
+  border: 1px solid rgba(252, 211, 77, 0.45);
+  color: #fcd34d;
+}

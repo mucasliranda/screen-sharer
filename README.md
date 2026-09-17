@@ -46,6 +46,51 @@ Abra <http://localhost:3000>, clique em **Criar transmissão** e envie o link `/
 
 ---
 
+## Dois transportes de mídia
+
+A variável `TRANSPORT` escolhe por onde a mídia trafega. O padrão é `livekit`.
+
+| | `livekit` | `p2p` |
+|---|---|---|
+| Topologia | SFU: 1 stream sai, servidor replica | Malha: 1 conexão por espectador |
+| Upload de quem transmite | 1,5 Mbps, constante | **N × 1,5 Mbps** |
+| Custo de banda de servidor | Conta na cota do LiveKit | Zero |
+| Redes restritivas | TURN incluso, conecta em todo lugar | Sem TURN: parte dos espectadores não conecta |
+| Telemetria de uso | Completa (webhooks) | Só "sala criada" |
+| Teto prático | Centenas | ~8 espectadores |
+
+**A troca é direta:** você deixa de pagar egress de servidor e passa a pagar com o upload
+de quem apresenta. Para poucos espectadores o p2p é estritamente melhor; a partir de uma
+dúzia, estritamente pior.
+
+Um valor inválido **impede o servidor de subir** (`next.config.mjs` valida no boot e no
+build). Isso é proposital: cair para `livekit` em silêncio queimaria exatamente a cota que
+o modo p2p existe para poupar.
+
+Qualidade, captura e codificação são **idênticas nos dois modos** e vivem em `src/config.ts`.
+
+### Como o modo p2p funciona
+
+- **Sinalização e presença:** Supabase Realtime, canal `ss:<slug>`. A mídia nunca passa por
+  lá — só SDP, ICE e o mapa de participantes.
+- **Sem TURN, por decisão.** TURN faz relay da mídia e reintroduziria o custo de banda.
+  Quem não conectar vê a mensagem dizendo exatamente isso, não uma tela preta.
+- **Bastão sem servidor:** contador tipo Lamport no presence, desempatado pelo peerId
+  (`src/lib/p2p/baton.ts`). Como o presence é sincronizado pelo servidor, todo cliente
+  calcula o mesmo vencedor. Se duas pessoas clicam juntas, uma ganha e a outra vê o aviso
+  de sempre — nunca as duas caem.
+- **Ciclo de vida simples:** o apresentador é sempre o ofertante e cada PeerConnection vive
+  o tempo de uma transmissão. Sem renegociação, sem glare, sem rollback. Custa ~200ms de
+  reconexão quando o bastão troca.
+
+### Identidade é auto-declarada no modo p2p
+
+No LiveKit o JWT torna a identidade autoritativa. No p2p o canal é público e o `peerId` e o
+nome que cada cliente publica no presence são auto-declarados — um cliente modificado pode
+se passar por outro nome ou tomar o bastão. Dado que o link já é o segredo e quem entra já
+é confiável o bastante para compartilhar tela, isso é aceitável. Se deixar de ser, o caminho
+é canal privado com JWT do Supabase e RLS em `realtime.messages`.
+
 ## Como funciona
 
 ```
